@@ -61,9 +61,10 @@ def diceEM(experiment_data: List[NDArray[np.int_]],  # pylint: disable=C0103
 
         # YOUR CODE HERE. SET REQUIRED VARIABLES BY CALLING e-step AND m-step.
         # E-step: compute the expected counts given current parameters        
-  
+        expected_counts = e_step(experiment_data, bag_of_dice)
         # M-step: update the parameters given the expected counts
-      
+        updated_bag_of_dice = m_step(expected_counts)
+
         prev_bag_of_dice: BagOfDice = bag_of_dice
         bag_of_dice = updated_bag_of_dice
 
@@ -109,6 +110,21 @@ def e_step(experiment_data: List[NDArray[np.int_]],
 
     # PUT YOUR CODE HERE, FOLLOWING THE DIRECTIONS ABOVE
 
+    for roll_data in experiment_data:
+        likelihoods = np.zeros(len(bag_of_dice))
+        for die_index in range(len(bag_of_dice)):
+            prior_probability, current_die = bag_of_dice[die_index]
+            face_probabilities = []
+            for face_index in range(len(roll_data)):
+                face_probabilities.append(np.power(current_die._face_probs[face_index], roll_data[face_index]))
+            likelihoods[die_index] = np.prod(face_probabilities) * prior_probability
+
+        total_likelihood = np.sum(likelihoods)
+
+        for die_index in range(expected_counts.shape[0]):
+            posterior_prob = likelihoods[die_index] / total_likelihood
+            expected_counts[die_index][:len(roll_data)] += posterior_prob * roll_data
+
     return expected_counts
 
 
@@ -131,13 +147,15 @@ def m_step(expected_counts_by_die: NDArray[np.float_]):
     :return: A new BagOfDice object with updated parameters
     :rtype: BagOfDice
     """
+    total_rolls = np.sum(expected_counts_by_die)
     updated_type_1_frequency = np.sum(expected_counts_by_die[0])
     updated_type_2_frequency = np.sum(expected_counts_by_die[1])
 
     # REPLACE EACH NONE BELOW WITH YOUR CODE. 
-    updated_priors = None
-    updated_type_1_face_probs = None
-    updated_type_2_face_probs = None
+    updated_priors = np.array([updated_type_1_frequency / total_rolls,
+                               updated_type_2_frequency / total_rolls])
+    updated_type_1_face_probs = expected_counts_by_die[0] / updated_type_1_frequency
+    updated_type_2_face_probs = expected_counts_by_die[1] / updated_type_2_frequency
     
     updated_bag_of_dice = BagOfDice(updated_priors,
                                     [Die(updated_type_1_face_probs),
